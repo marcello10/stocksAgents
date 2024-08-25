@@ -1,21 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# ![image.png](attachment:image.png)
-
-# #INSTALAÇÃO DAS LIBS
-# !pip install yfinance==0.2.41
-# !pip install crewai==0.28.8
-# !pip install 'crewai[tools]'
-# !pip install langchain==0.1.20
-# !pip install langchain-openai==0.1.7
-# !pip install langchain-community==0.0.38
-# !pip install duckduckgo-search==5.3.0
-
-# In[1]:
-
-
-#IMPORT DA LIBS
 import json 
 import os
 from datetime import datetime
@@ -27,6 +9,7 @@ from crewai import Agent, Task, Crew, Process
 from langchain.tools import Tool
 from langchain_openai import ChatOpenAI
 from langchain_community.tools import DuckDuckGoSearchResults
+
 import streamlit as st
 
 # CRIANDO YAHOO FINANCE TOOL 
@@ -39,9 +22,12 @@ yahoo_finance_tool = Tool(
     description = "Fetches stocks prices for {ticket} from the last year about a specific company from Yahoo Finance API",
     func= lambda ticket: fetch_stock_price(ticket)
 )
+
 # IMPORTANDO OPENAI LLM - GPT
-os.environ['OPENAI_API_KEY']=st.secrets('OPENAI_API_KEY')
+os.environ['OPENAI_API_KEY']=st.secrets['OPEN_API_KEY']
 llm = ChatOpenAI(model="gpt-3.5-turbo")
+
+
 stockPriceAnalyst = Agent(
     role= "Senior stock price Analyst",
     goal="Find the {ticket} stock price and analyses trends",
@@ -54,6 +40,11 @@ stockPriceAnalyst = Agent(
     tools=[yahoo_finance_tool],
     allow_delegation=False
 )
+
+
+# In[6]:
+
+
 getStockPrice = Task(
     description= "Analyze the stock {ticket} price history and create a trend analyses of up, down or sideways",
     expected_output = """" Specify the current trend stock price - up, down or sideways. 
@@ -61,8 +52,18 @@ getStockPrice = Task(
 """,
     agent= stockPriceAnalyst
 )
+
+
+# In[7]:
+
+
 # IMPORTANT A TOOL DE SEARCH 
 search_tool = DuckDuckGoSearchResults(backend='news', num_results=10)
+
+
+# In[8]:
+
+
 newsAnalyst = Agent(
     role= "Stock News Analyst",
     goal="""Create a short summary of the market news related to the stock {ticket} company. Specify the current trend - up, down or sideways with
@@ -81,6 +82,11 @@ newsAnalyst = Agent(
     tools=[search_tool],
     allow_delegation=False
 )
+
+
+# In[9]:
+
+
 get_news = Task(
     description= f"""Take the stock and always include BTC to it (if not request).
     Use the search tool to search each one individually. 
@@ -97,6 +103,11 @@ get_news = Task(
 """,
     agent= newsAnalyst
 )
+
+
+# In[10]:
+
+
 stockAnalystWrite = Agent(
     role = "Senior Stock Analyts Writer",
     goal= """"Analyze the trends price and news and write an insighfull compelling and informative 3 paragraph long newsletter based on the stock report and price trend. """,
@@ -112,6 +123,11 @@ stockAnalystWrite = Agent(
     memory=True,
     allow_delegation = True
 )
+
+
+# In[11]:
+
+
 writeAnalyses = Task(
     description = """Use the stock price trend and the stock news report to create an analyses and write the newsletter about the {ticket} company
     that is brief and highlights the most important points.
@@ -128,6 +144,11 @@ writeAnalyses = Task(
     agent = stockAnalystWrite,
     context = [getStockPrice, get_news]
 )
+
+
+# In[12]:
+
+
 crew = Crew(
     agents = [stockPriceAnalyst, newsAnalyst, stockAnalystWrite],
     tasks = [getStockPrice, get_news, writeAnalyses],
@@ -138,19 +159,20 @@ crew = Crew(
     manager_llm=llm,
     max_iter=15
 )
-#results= crew.kickoff(inputs={'ticket': 'MSFT'})
-#results['final_output']
+
+# results= crew.kickoff(inputs={'ticket': 'AAPL})
 
 with st.sidebar:
-    st.header("Enter the stock to research")
-    
+    st.header('Enter the Stock to Research')
+
     with st.form(key='research_form'):
         topic = st.text_input("Select the ticket")
-        submit_button = st.form_submit_button(label="Run research")
+        submit_button = st.form_submit_button(label = "Run Research")
 if submit_button:
     if not topic:
         st.error("Please fill the ticket field")
     else:
-        results = crew.kickoff(inputs={'ticket': topic})
-        st.subheader("Results of your research:")
+        results= crew.kickoff(inputs={'ticket': topic})
+
+        st.subheader("Results of research:")
         st.write(results['final_output'])
